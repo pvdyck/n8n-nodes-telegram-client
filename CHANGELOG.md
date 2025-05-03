@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the n8n-nodes-telegram-client package will be documented in this file.
+All notable changes to the n8n-nodes-telegram-mtproto-client package will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Comprehensive error handling and user-friendly error messages
 
 ### Changed
+- Package renamed from `n8n-nodes-telegram-client` to `n8n-nodes-telegram-mtproto-client` to better reflect the MTProto protocol implementation
 - Enhanced documentation with detailed examples and usage instructions
 - Improved error handling for all operations
 

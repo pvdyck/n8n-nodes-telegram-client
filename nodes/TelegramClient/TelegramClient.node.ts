@@ -20,15 +20,15 @@ import { StringSession } from '../../sdk/telegram';
 
 export class TelegramClient implements INodeType {
     description: INodeTypeDescription = {
-        displayName: 'Telegram Client',
+        displayName: 'Telegram MTProto Client',
         name: 'telegramClient',
         icon: 'file:telegrams.svg',
         group: ['transform'],
         version: 1,
         subtitle: '={{$parameter["operation"]}}',
-        description: 'Use Telegram Client API',
+        description: 'Use Telegram Client API with MTProto protocol',
         defaults: {
-            name: 'Telegram Client'
+            name: 'Telegram MTProto Client'
         },
         inputs: ['main'],
         outputs: ['main'],

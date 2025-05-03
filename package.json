@@ -1,18 +1,18 @@
 {
-  "name": "n8n-nodes-telegram-client",
+  "name": "n8n-nodes-telegram-mtproto-client",
   "version": "0.1.7",
-  "description": "n8n node for Telegram Client API with full user capabilities",
+  "description": "n8n node for Telegram Client API using MTProto protocol with full user capabilities",
   "keywords": [
     "n8n-community-node-package"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/pvdyck/n8n-nodes-telegram-client",
+  "homepage": "https://github.com/pvdyck/n8n-nodes-telegram-mtproto-client",
   "author": {
     "name": "pvdyck"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/pvdyck/n8n-nodes-telegram-client.git"
+    "url": "https://github.com/pvdyck/n8n-nodes-telegram-mtproto-client.git"
   },
   "main": "dist/nodes/TelegramClient/TelegramClient.node.js",
   "scripts": {

@@ -1,7 +1,7 @@
-# n8n-nodes-telegram-client
+# n8n-nodes-telegram-mtproto-client
 
-[![NPM Version](https://img.shields.io/npm/v/n8n-nodes-telegram-client.svg)](https://www.npmjs.com/package/n8n-nodes-telegram-client)
-[![License](https://img.shields.io/github/license/pvdyck/n8n-nodes-telegram-client)](https://github.com/pvdyck/n8n-nodes-telegram-client/blob/master/LICENSE)
+[![NPM Version](https://img.shields.io/npm/v/n8n-nodes-telegram-mtproto-client.svg)](https://www.npmjs.com/package/n8n-nodes-telegram-mtproto-client)
+[![License](https://img.shields.io/github/license/pvdyck/n8n-nodes-telegram-mtproto-client)](https://github.com/pvdyck/n8n-nodes-telegram-mtproto-client/blob/master/LICENSE)
 
 This is a comprehensive Telegram Client node for [n8n](https://n8n.io) that allows you to interact with Telegram as a regular user (not a bot). It provides access to advanced Telegram features that are not available through the regular bot API.
 
@@ -30,7 +30,7 @@ For n8n v0.214.0 and above:
 
 1. Go to **Settings > Community Nodes**
 2. Click on **Install a node from NPM**
-3. Enter `n8n-nodes-telegram-client`
+3. Enter `n8n-nodes-telegram-mtproto-client`
 4. Click **Install**
 
 ### Manual Installation
@@ -42,7 +42,7 @@ For n8n versions below v0.214.0 or for manual installation:
 
 ```bash
 cd ~/.n8n
-npm install n8n-nodes-telegram-client
+npm install n8n-nodes-telegram-mtproto-client
 ```
 
 ### From Source
@@ -50,10 +50,10 @@ If you want to install from source or contribute to development:
 
 ```bash
 # Clone the repository
-git clone https://github.com/pvdyck/n8n-nodes-telegram-client.git
+git clone https://github.com/pvdyck/n8n-nodes-telegram-mtproto-client.git
 
 # Install dependencies
-cd n8n-nodes-telegram-client
+cd n8n-nodes-telegram-mtproto-client
 npm install
 
 # Build the node
@@ -292,7 +292,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 If you encounter any issues or have questions:
 
-- Create an issue on [GitHub](https://github.com/pvdyck/n8n-nodes-telegram-client/issues)
+- Create an issue on [GitHub](https://github.com/pvdyck/n8n-nodes-telegram-mtproto-client/issues)
 - Check existing issues for solutions
 - Contact the maintainer
 
