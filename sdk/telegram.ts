@@ -36,6 +36,14 @@ interface ChatMember {
     fake?: boolean;
 }
 
+interface Channel {
+    id: number;
+    accessHash: string;
+    title: string;
+    about?: string;
+    invitedUsers?: ChatMember[];
+}
+
 export class StringSession {
     private session: string;
 
@@ -335,6 +343,173 @@ export class TelegramClient {
         });
     }
 
+    /**
+     * Creates a new channel/supergroup and invites users to it in a single operation
+     *
+     * This method performs two actions:
+     * 1. Creates a new channel or supergroup with the specified title and description
+     * 2. Invites the specified users to the newly created channel
+     *
+     * @param options Channel creation and invitation options
+     * @param options.title The title of the channel/supergroup (required)
+     * @param options.about The description of the channel/supergroup (optional)
+     * @param options.isBroadcast If true, creates a broadcast channel; if false, creates a supergroup (default: false)
+     * @param options.users Array of usernames with @ prefix to invite to the channel (e.g., ['@user1', '@user2'])
+     *
+     * @returns Information about the created channel including:
+     * - id: The numeric ID of the created channel
+     * - accessHash: The access hash needed for future operations on this channel
+     * - title: The title of the channel
+     * - about: The description of the channel
+     * - invitedUsers: Array of user objects that were successfully invited
+     *
+     * @throws Error if channel creation fails or if user invitation fails
+     *
+     * @example
+     * // Create a supergroup and invite users
+     * const channel = await client.createChannelAndInvite({
+     *   title: 'My Supergroup',
+     *   about: 'A group for team discussions',
+     *   isBroadcast: false,
+     *   users: ['@user1', '@user2']
+     * });
+     *
+     * // Create a broadcast channel without inviting users
+     * const channel = await client.createChannelAndInvite({
+     *   title: 'Announcements',
+     *   about: 'Official announcements channel',
+     *   isBroadcast: true
+     * });
+     */
+    async createChannelAndInvite(
+        options: {
+            title: string;
+            about?: string;
+            isBroadcast?: boolean; // true for channel, false for supergroup
+            users?: Array<string>; // usernames with @ prefix to invite
+        }
+    ): Promise<Channel> {
+        try {
+            // Step 1: Create the channel
+            const createResult = await this.mtproto.call('channels.createChannel', {
+                title: options.title,
+                about: options.about || '',
+                broadcast: options.isBroadcast === true, // Channel
+                megagroup: options.isBroadcast !== true, // Supergroup
+            });
+
+            // Extract channel info from the result
+            const channel = createResult.chats.find((chat: any) =>
+                chat._ === 'channel' || chat._ === 'supergroup'
+            );
+
+            if (!channel) {
+                throw new Error('Failed to create channel: Channel information not found in response');
+            }
+
+            const channelInfo: Channel = {
+                id: channel.id,
+                accessHash: channel.access_hash,
+                title: channel.title,
+                about: options.about || '',
+            };
+
+            // Step 2: If users are provided, invite them to the channel
+            if (options.users && options.users.length > 0) {
+                const resolvedUsers = await Promise.all(
+                    options.users.map(user => this.resolveUser(user))
+                );
+
+                // Filter out any failed resolutions
+                const validUsers = resolvedUsers.filter(user => user !== null);
+
+                if (validUsers.length > 0) {
+                    const inviteResult = await this.mtproto.call('channels.inviteToChannel', {
+                        channel: {
+                            _: 'inputChannel',
+                            channel_id: channel.id,
+                            access_hash: channel.access_hash,
+                        },
+                        users: validUsers,
+                    });
+
+                    // Extract invited user info
+                    const invitedUsers = inviteResult.users.map((user: any) => ({
+                        id: user.id,
+                        firstName: user.first_name,
+                        lastName: user.last_name,
+                        username: user.username,
+                        phone: user.phone,
+                        bot: user.bot,
+                        scam: user.scam,
+                        fake: user.fake,
+                    }));
+
+                    channelInfo.invitedUsers = invitedUsers;
+                }
+            }
+
+            return channelInfo;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+            // Provide more specific error messages for common errors
+            if (errorMessage.includes('CHANNELS_TOO_MUCH')) {
+                throw new Error('Failed to create channel: You have joined too many channels/supergroups');
+            } else if (errorMessage.includes('USER_RESTRICTED')) {
+                throw new Error('Failed to create channel: Your account is restricted from creating channels');
+            } else if (errorMessage.includes('CHAT_ADMIN_REQUIRED')) {
+                throw new Error('Failed to invite users: Admin rights required');
+            } else if (errorMessage.includes('USER_PRIVACY_RESTRICTED')) {
+                throw new Error('Failed to invite some users: Their privacy settings prevent invitation');
+            }
+
+            throw new Error('Failed to create channel or invite users: ' + errorMessage);
+        }
+    }
+
+    /**
+     * Helper method to resolve a Telegram username to an InputUser object required by the Telegram API
+     *
+     * This method takes a username with @ prefix and converts it to the InputUser format
+     * that Telegram's API requires for operations like inviting users to channels.
+     *
+     * @param username Telegram username with @ prefix (e.g., @username)
+     * @returns InputUser object with user_id and access_hash if successful, null if resolution fails
+     *
+     * @private This is an internal helper method not meant to be used directly
+     *
+     * @example
+     * // Internal usage
+     * const inputUser = await this.resolveUser('@username');
+     * // Returns: { _: 'inputUser', user_id: 123456789, access_hash: '123456789abcdef' }
+     */
+    private async resolveUser(username: string): Promise<any | null> {
+        try {
+            if (username.startsWith('@')) {
+                // Resolve username
+                const result = await this.mtproto.call('contacts.resolveUsername', {
+                    username: username.slice(1),
+                });
+
+                if (result.users && result.users.length > 0) {
+                    return {
+                        _: 'inputUser',
+                        user_id: result.users[0].id,
+                        access_hash: result.users[0].access_hash,
+                    };
+                }
+            } else {
+                console.warn('Username must start with @:', username);
+            }
+
+            return null;
+        } catch (error) {
+            console.error('Failed to resolve user:', username, error);
+            return null;
+        }
+    }
+
     private async resolvePeer(chatId: string | number): Promise<any> {
         try {
             if (typeof chatId === 'string' && chatId.startsWith('@')) {
@@ -376,4 +551,4 @@ export const createDocumentAttributes = {
 };
 
 // Export all interfaces
-export type { DocumentAttributeVideo, DocumentAttributeAudio, Message, ChatMember };
+export type { DocumentAttributeVideo, DocumentAttributeAudio, Message, ChatMember, Channel };

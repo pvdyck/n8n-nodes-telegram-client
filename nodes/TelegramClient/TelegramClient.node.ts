@@ -5,12 +5,14 @@ import {
     INodeTypeDescription,
     IDataObject,
     ICredentialDataDecryptedObject,
+    NodeConnectionType,
 } from 'n8n-workflow';
-import { 
-    TelegramClient as TgramClient, 
+import {
+    TelegramClient as TgramClient,
     createDocumentAttributes,
     type Message,
     type ChatMember,
+    type Channel,
     type DocumentAttributeVideo,
     type DocumentAttributeAudio,
 } from '../../sdk/telegram';
@@ -115,6 +117,12 @@ export class TelegramClient implements INodeType {
                         description: 'Search for messages globally or in a specific chat',
                         action: 'Search messages',
                     },
+                    {
+                        name: 'Create Channel and Invite',
+                        value: 'createChannelAndInvite',
+                        description: 'Create a new channel/supergroup and invite users to it in a single operation',
+                        action: 'Create channel and invite users',
+                    },
                 ],
                 default: 'sendMessage',
             },
@@ -139,6 +147,80 @@ export class TelegramClient implements INodeType {
                             'joinChat',
                             'leaveChat',
                             'searchMessages',
+                        ],
+                    },
+                },
+            },
+            // Parameters for createChannelAndInvite operation
+            {
+                displayName: 'Channel Title',
+                name: 'channelTitle',
+                type: 'string',
+                default: '',
+                required: true,
+                description: 'Title of the channel/supergroup to create. This will be visible to all members and in channel listings.',
+                placeholder: 'My Team Channel',
+                displayOptions: {
+                    show: {
+                        operation: [
+                            'createChannelAndInvite',
+                        ],
+                    },
+                },
+            },
+            {
+                displayName: 'Channel Description',
+                name: 'channelDescription',
+                type: 'string',
+                default: '',
+                description: 'Description of the channel/supergroup. This appears in the channel info section and helps users understand the channel\'s purpose.',
+                placeholder: 'Official channel for team announcements and discussions',
+                displayOptions: {
+                    show: {
+                        operation: [
+                            'createChannelAndInvite',
+                        ],
+                    },
+                },
+            },
+            {
+                displayName: 'Channel Type',
+                name: 'channelType',
+                type: 'options',
+                options: [
+                    {
+                        name: 'Broadcast Channel',
+                        value: 'broadcast',
+                        description: 'One-way channel where only admins can post messages. Best for announcements and news.',
+                    },
+                    {
+                        name: 'Supergroup',
+                        value: 'supergroup',
+                        description: 'Interactive group where all members can post messages. Best for discussions and communities.',
+                    },
+                ],
+                default: 'supergroup',
+                description: 'The type of channel to create. This determines who can post messages and other channel capabilities.',
+                displayOptions: {
+                    show: {
+                        operation: [
+                            'createChannelAndInvite',
+                        ],
+                    },
+                },
+            },
+            {
+                displayName: 'Users to Invite',
+                name: 'usersToInvite',
+                type: 'string',
+                default: '',
+                description: 'Comma-separated list of Telegram usernames with @ prefix to invite to the channel. Only usernames (not user IDs) are supported. Users must exist on Telegram and be accessible to your account. Leave empty to create a channel without inviting users.',
+                placeholder: '@user1, @user2, @user3',
+                hint: 'Users must be accessible to your account. Some users may have privacy settings that prevent being added to groups.',
+                displayOptions: {
+                    show: {
+                        operation: [
+                            'createChannelAndInvite',
                         ],
                     },
                 },
@@ -354,7 +436,7 @@ export class TelegramClient implements INodeType {
 
             for (let i = 0; i < items.length; i++) {
                 const operation = this.getNodeParameter('operation', i) as string;
-                
+
                 try {
                     switch (operation) {
                         case 'sendMessage': {
@@ -385,7 +467,7 @@ export class TelegramClient implements INodeType {
                             const mediaType = this.getNodeParameter('mediaType', i) as string;
                             const options = this.getNodeParameter('options', i, {}) as IDataObject;
 
-                            let attributes: Array<DocumentAttributeVideo | DocumentAttributeAudio> = [];
+                            const attributes: Array<DocumentAttributeVideo | DocumentAttributeAudio> = [];
 
                             if (mediaType === 'video') {
                                 attributes.push(createDocumentAttributes.video({
@@ -476,7 +558,7 @@ export class TelegramClient implements INodeType {
                         case 'getUserInfo': {
                             const userId = this.getNodeParameter('userId', i) as string;
                             const user = await client.getEntity(userId);
-                            
+
                             returnData.push({
                                 json: {
                                     success: true,
@@ -510,12 +592,12 @@ export class TelegramClient implements INodeType {
                             const chatId = this.getNodeParameter('chatId', i) as string;
                             const messageId = this.getNodeParameter('messageId', i) as number;
                             const toChatId = this.getNodeParameter('toChatId', i) as string;
-                            
+
                             const results = await client.forwardMessages(toChatId, {
                                 messages: [messageId],
                                 fromPeer: chatId,
                             });
-                            
+
                             returnData.push({
                                 json: {
                                     success: true,
@@ -577,9 +659,9 @@ export class TelegramClient implements INodeType {
 
                         case 'joinChat': {
                             const chatId = this.getNodeParameter('chatId', i) as string;
-                            
+
                             await client.joinChannel(chatId);
-                            
+
                             returnData.push({
                                 json: {
                                     success: true,
@@ -589,12 +671,12 @@ export class TelegramClient implements INodeType {
                             });
                             break;
                         }
-                        
+
                         case 'leaveChat': {
                             const chatId = this.getNodeParameter('chatId', i) as string;
-                            
+
                             await client.leaveChannel(chatId);
-                            
+
                             returnData.push({
                                 json: {
                                     success: true,
@@ -602,6 +684,72 @@ export class TelegramClient implements INodeType {
                                     chatId,
                                 }
                             });
+                            break;
+                        }
+                        case 'createChannelAndInvite': {
+                            const title = this.getNodeParameter('channelTitle', i) as string;
+                            const about = this.getNodeParameter('channelDescription', i, '') as string;
+                            const channelType = this.getNodeParameter('channelType', i) as string;
+                            const usersToInviteStr = this.getNodeParameter('usersToInvite', i, '') as string;
+
+                            // Parse users to invite
+                            const users = usersToInviteStr
+                                ? usersToInviteStr.split(',').map(user => user.trim())
+                                : [];
+
+                            // Validate usernames format
+                            const invalidUsers = users.filter(user => !user.startsWith('@'));
+                            if (invalidUsers.length > 0) {
+                                throw new Error(`Invalid username format: ${invalidUsers.join(', ')}. All usernames must start with @ symbol.`);
+                            }
+
+                            try {
+                                const result = await client.createChannelAndInvite({
+                                    title,
+                                    about,
+                                    isBroadcast: channelType === 'broadcast',
+                                    users,
+                                });
+
+                                // Calculate success and failure statistics for user invitations
+                                const invitationStats = {
+                                    total: users.length,
+                                    successful: result.invitedUsers?.length || 0,
+                                    failed: users.length - (result.invitedUsers?.length || 0),
+                                };
+
+                                returnData.push({
+                                    json: {
+                                        success: true,
+                                        channelId: result.id,
+                                        accessHash: result.accessHash,
+                                        title: result.title,
+                                        about: result.about,
+                                        type: channelType === 'broadcast' ? 'Broadcast Channel' : 'Supergroup',
+                                        link: `https://t.me/c/${result.id}`, // This is an approximate link format
+                                        invitedUsers: result.invitedUsers || [],
+                                        invitationStats,
+                                        createdAt: new Date().toISOString(),
+                                    }
+                                });
+                            } catch (error) {
+                                // Provide more specific error messages for common channel creation issues
+                                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+                                if (errorMessage.includes('CHANNELS_TOO_MUCH')) {
+                                    throw new Error('You have reached the maximum number of channels/supergroups you can create or join. Consider leaving some channels before creating new ones.');
+                                } else if (errorMessage.includes('USER_RESTRICTED')) {
+                                    throw new Error('Your account is restricted from creating new channels. This may be due to spam reports or violation of Telegram\'s terms of service.');
+                                } else if (errorMessage.includes('CHAT_TITLE_EMPTY')) {
+                                    throw new Error('The channel title cannot be empty. Please provide a valid title.');
+                                } else if (errorMessage.includes('CHAT_ABOUT_TOO_LONG')) {
+                                    throw new Error('The channel description is too long. Please shorten it.');
+                                } else if (errorMessage.includes('USER_PRIVACY_RESTRICTED')) {
+                                    throw new Error('Some users could not be invited due to their privacy settings. They need to allow being added to groups in their privacy settings.');
+                                } else {
+                                    throw error; // Re-throw the original error for other cases
+                                }
+                            }
                             break;
                         }
                         default: {
